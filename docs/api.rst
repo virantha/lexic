@@ -2,5 +2,5 @@
 API Documentation
 =================
 
-.. automodule:: [[project_name]]
+.. automodule:: lexic
 
