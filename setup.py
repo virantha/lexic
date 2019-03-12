@@ -7,7 +7,7 @@ from setuptools import Command
 # Load the package's __version__.py module as a dictionary.
 here = os.path.abspath(os.path.dirname(__file__))
 about = {}
-with open(os.path.join(here, '', 'version.py')) as f:
+with open(os.path.join(here, 'lexic', 'version.py')) as f:
     exec(f.read(), about)
 
 class PyTest(Command):
@@ -49,6 +49,8 @@ packages = find_packages(exclude="tests")
 
 long_description = read('README.rst')
 
+dependency_links = []
+required = []
 with open("requirements.txt") as f:
     for line in f.read().splitlines():
         if line.startswith('git'):
