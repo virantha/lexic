@@ -1,0 +1,12 @@
+fabric
+sphinx
+sphinx-readable-theme
+setuptools
+wheel
+twine
+pytest
+mock
+pytest-cov
+pytest-curio
+coveralls
+pyyaml
