@@ -1,4 +1,8 @@
 fabric
+tox
+schema
+docopt
+restview
 sphinx
 sphinx-readable-theme
 setuptools

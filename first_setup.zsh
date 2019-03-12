@@ -28,7 +28,7 @@ print Working in virtualenv lexic
 
 
 # Set up the pip packages
-pip install pytest mock pytest-cov python-coveralls coverage sphinx tox restview schema docopt
+pip install -r requirements-dev.txt
 #pip install sphinx restview
 echo "cd ~/dev/lexic" >> ~/dev/envs/lexic/bin/postactivate
 echo "unset PYTHONPATH" >> ~/dev/envs/lexic/bin/postactivate
