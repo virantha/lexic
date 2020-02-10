@@ -1,3 +1,8 @@
 pyyaml>=3.1.0
 docopt
 schema
+reportlab
+pypdf2
+networkx
+psutil
+
