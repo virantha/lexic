@@ -225,7 +225,6 @@ class Lexic:
                     self.flow[plugin.stage] = plugin.desc
                 else:
                     self.filters[plugin.name] = plugin.desc
-                
 
 
     async def system(self):
