@@ -31,7 +31,7 @@ class Plugin(Cmd):
                 next_file = self._change_ext(item, 'loc')
 
                 if not self.skip:
-                    with open(item) as f:
+                    with open(item, 'r', encoding='utf8') as f:
                         tsv_contents = f.readlines()
                     text_locations = await self.process_tsv(tsv_contents)
                     logger.debug(text_locations)
