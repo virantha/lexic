@@ -41,7 +41,7 @@ class Cmd:
         
         if os_ == 'Linux':
             logging.debug('linux')
-            raise UnsupportedOSError
+            #raise UnsupportedOSError
         elif os_ == 'Windows':
             logging.debug('Windows')
             raise UnsupportedOSError
