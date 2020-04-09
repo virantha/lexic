@@ -145,6 +145,8 @@ class Plugin(Cmd):
                 tgt_path = Path(filer.originals_path)
                 year = datetime.datetime.now().year
                 tgt_path = tgt_path / Path(f'{year}')
+                if not filer._check_folder_exists(tgt_path):
+                    os.makedirs(tgt_path)
                 shutil.copy2(self.original_pdf_filename, tgt_path)
 
         return item_list
