@@ -1,4 +1,4 @@
-import logging, os, sys, shutil
+import logging, os, sys, shutil, datetime
 
 import yaml
 from pathlib import Path
@@ -134,7 +134,7 @@ class Plugin(Cmd):
             ext      = self._get_filename_ext(item)
 
             tgt_path = folder / Path(f'{basename}{ext}')
-            i = 0
+            i = 2
             while tgt_path.exists():
                 tgt_path = folder / Path(f'{basename}.{i}{ext}')
                 i += 1
@@ -142,7 +142,10 @@ class Plugin(Cmd):
 
             # Now, file the original if needed
             if filer.originals_path:
-                shutil.copy2(self.original_pdf_filename, filer.originals_path)
+                tgt_path = Path(filer.originals_path)
+                year = datetime.datetime.now().year
+                tgt_path = tgt_path / Path(f'{year}')
+                shutil.copy2(self.original_pdf_filename, tgt_path)
 
         return item_list
     
