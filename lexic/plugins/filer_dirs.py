@@ -87,7 +87,7 @@ class KeywordFiler:
         folder = None
         for page in self.iter_page_text():
             for keyword in keywords:
-                if keyword in page:
+                if keyword in page.lower():
                     folder = self.keywords_to_folders[keyword]
                     logger.debug(f'Found matching keyword: {keyword} -> folder:{folder}') 
                     return self.root_path / Path(folder)
