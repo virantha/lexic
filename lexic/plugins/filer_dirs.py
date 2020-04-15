@@ -46,40 +46,6 @@ class DirFiler(KeywordFiler):
         else:
             return True
 
-    def iter_page_text(self):
-        num_pages = self.reader.getNumPages()
-        logging.debug(f'Found {num_pages} pages to scan in {self.pdf_filename}')
-        for page_num in range(num_pages):
-            text = self.reader.getPage(page_num).extractText()
-            text = text.encode('ascii', 'ignore')
-            text = text.decode('utf-8')
-            text = text.replace('\n', ' ')
-            yield text
-    
-    def reverse_keyword_dict(self, folder_dict):
-        keywords_to_folders = {}
-
-        for folder, keyword_list in folder_dict.items():
-            for keyword in keyword_list: 
-                assert keyword not in keywords_to_folders
-                keywords_to_folders[keyword] = folder
-        return keywords_to_folders
-
-    def find_matching_folder(self):
-        # Iterate through each page and search for each
-        keywords = list(self.keywords_to_folders.keys())
-
-        default_folder = self.root_path / Path(self.yaml_config['default'])
-        folder = None
-        for page in self.iter_page_text():
-            for keyword in keywords:
-                if keyword in page.lower():
-                    folder = self.keywords_to_folders[keyword]
-                    logger.debug(f'Found matching keyword: {keyword} -> folder:{folder}') 
-                    return self.root_path / Path(folder)
-        # No match for folder so we need to set it to the default
-        return default_folder         
-
 
         
 class Plugin(Cmd):
@@ -114,6 +80,7 @@ class Plugin(Cmd):
             item = items[0]
             filer = DirFiler(yaml_filename, item)
             folder = filer.find_matching_folder()
+            folder = Path(filer.root_path) / Path(folder)
             logger.debug(f'Filing to folder {folder}')
             # Don't overwrite anything.  Just increment a suffix on the filename
             basename = self._get_filename_base(item)
@@ -129,7 +96,8 @@ class Plugin(Cmd):
             # Now, file the original if needed
             if filer.originals_path:
                 tgt_path = Path(filer.originals_path)
-                year = datetime.datetime.now().year
+                dt = filer.find_closest_date()
+                year = dt.year
                 tgt_path = tgt_path / Path(f'{year}')
                 if not filer._check_folder_exists(tgt_path):
                     os.makedirs(tgt_path)
