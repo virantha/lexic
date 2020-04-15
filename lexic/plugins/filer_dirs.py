@@ -1,32 +1,22 @@
 import logging, os, sys, shutil, datetime
 
-import yaml
 from pathlib import Path
-from PyPDF2 import PdfFileReader
-
 
 from ..command import Cmd
 from ..item import ItemList
+from ..keyword_filer import KeywordFiler
 
 logger = logging.getLogger(__name__)
 
 """
     File pdfs into a directory structure
 """
-class KeywordFiler:
-
-    def __init__(self, keyword_filename, pdf_filename):
-        self._load_yaml_and_validate(keyword_filename)
-        self.pdf_filename = pdf_filename
-        self.reader = PdfFileReader(pdf_filename)
+class DirFiler(KeywordFiler):
+    # Need to augment the validator to create directories,
+    # as well as store originals
 
     def _load_yaml_and_validate(self, keyword_filename):
-        with open(keyword_filename) as f:
-            self.yaml_config = yaml.load(f)
-        file_desc = 'YAML keywod file {keyword_filename}'
-        assert 'root' in self.yaml_config, f'{file_desc} must contain a root filing folder'
-        assert 'default' in self.yaml_config, f'{file_desc} must contain a default folder'
-        assert 'folders' in self.yaml_config, f'{file_desc} must contain a folders section'
+        super()._load_yaml_and_validate(keyword_filename)
 
         file_folders = list(self.yaml_config['folders'].keys())
         self.root_path = Path(self.yaml_config['root'])
@@ -41,10 +31,6 @@ class KeywordFiler:
         else:
             print(f'Root filing folder {self.root_path} does not exist. Please create it first')
             sys.exit(-1)
-
-        self.folders_to_keywords = self.yaml_config['folders']
-        logger.debug(f'keywords file: {self.folders_to_keywords}')
-        self.keywords_to_folders = self.reverse_keyword_dict(self.folders_to_keywords)
 
         # If the originals is specified, then create an variable to use later
         if 'originals' in self.yaml_config:
@@ -126,7 +112,7 @@ class Plugin(Cmd):
         # Read in the keyword files
         with item_list as items:
             item = items[0]
-            filer = KeywordFiler(yaml_filename, item)
+            filer = DirFiler(yaml_filename, item)
             folder = filer.find_matching_folder()
             logger.debug(f'Filing to folder {folder}')
             # Don't overwrite anything.  Just increment a suffix on the filename
