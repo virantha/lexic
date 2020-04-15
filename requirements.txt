@@ -9,3 +9,4 @@ curio==0.9
 matplotlib
 tqdm
 oauth2
+dateparser

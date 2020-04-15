@@ -4,6 +4,8 @@ import functools
 import yaml
 from pathlib import Path
 from PyPDF2 import PdfFileReader
+from dateparser.search import search_dates
+from datetime import datetime
 
 from evernote.api.client import EvernoteClient
 import evernote.edam.type.ttypes as Types
@@ -77,6 +79,38 @@ class KeywordFiler:
                     return folder
         # No match for folder so we need to set it to the default
         return default_folder         
+
+    def find_closest_date(self):
+        # Go through every page and search for dates using dateparser
+        # At the end, select the date closest to (and older) than the current date
+        # If no dates found (with full day month year), just use today's date
+        dates = []
+        for page_num, page in enumerate(self.iter_page_text()):
+            page_dates = search_dates(page)
+            logger.debug(f'Found dates on page {page_num}')
+            logger.debug(page_dates)
+            for text, dt in page_dates:
+                if dt.year == 1900:
+                    pass
+                else:
+                    dates.append(dt)
+        # Sort date list
+        dates = sorted(dates)
+        # Now, iterate through list until we're at or above today's date
+        now = datetime.now()
+        if len(dates) == 0:
+            newest_date = now
+        else:
+            newest_date = dates[0]
+            for dt in dates:
+                if dt <= now:
+                    newest_date = dt
+                else:
+                    break
+        return newest_date
+
+
+
 
 class en_handle(object):
     """ Generic exception handler for Evernote actions
@@ -182,7 +216,7 @@ class Evernote:
         note.title = os.path.basename(filename)
         note.notebookGuid = notebook.guid
         note.content = '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE en-note SYSTEM "http://xml.evernote.com/pub/enml2.dtd">'
-        note.content += '<en-note>Uploaded by PyPDFOCR <br/>'
+        note.content += '<en-note>Uploaded by Lexic <br/>'
        
 
         logger.debug("Loading PDF")
@@ -223,7 +257,7 @@ class Evernote:
         return note
 
         
-    def move_to_matching_folder(self, filename, foldername):
+    def move_to_matching_folder(self, filename, foldername, created_datetime):
         """
             Use the evernote API to create a new note:
 
@@ -246,6 +280,10 @@ class Evernote:
         print("Uploading %s to %s" % (filename, foldername))
         
         note = self._create_evernote_note(notebook, filename)
+        logger.debug(f'Datetime is: {created_datetime}, timestamp is: {created_datetime.timestamp()}')
+        note_timestamp = int(created_datetime.timestamp())* 1000 # evernote expects time in milliseconds
+        note.created = note_timestamp
+        #note.updated = note_timestamp
 
         # Store the note in evernote
         note_store = self.client.get_note_store()
@@ -287,6 +325,9 @@ class Plugin(Cmd):
             folder = filer.find_matching_folder()
             logger.debug(f'Filing to Evernote folder {folder}')
 
+            dt = filer.find_closest_date()
+            logger.debug(f'Closest date for document is {dt}')
+
             # Evernote
             #    Create note
             #    Push it to the note store
@@ -294,7 +335,7 @@ class Plugin(Cmd):
             En.connect_to_evernote()
             En.default_folder = folder
             En.target_folder= filer.yaml_config['root']
-            En.move_to_matching_folder(item, folder)
+            En.move_to_matching_folder(item, folder, dt)
 
         return item_list
     
