@@ -6,6 +6,7 @@ from pathlib import Path
 from PyPDF2 import PdfFileReader
 from dateparser.search import search_dates
 from datetime import datetime
+import pytz
 
 logger = logging.getLogger(__name__)
 
@@ -78,11 +79,12 @@ class KeywordFiler:
                 if dt.year == 1900:
                     pass
                 else:
-                    dates.append(dt.replace(tzinfo=None)))
+                    dates.append(pytz.utc.localize(unaware))
+                    #dates.append(dt.replace(tzinfo=None)))
         # Sort date list
         dates = sorted(dates)
         # Now, iterate through list until we're at or above today's date
-        now = datetime.now().replace(tzinfo=None)
+        now = datetime.now()
         if len(dates) == 0:
             newest_date = now
         else:
