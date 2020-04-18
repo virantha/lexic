@@ -79,12 +79,12 @@ class KeywordFiler:
                 if dt.year == 1900:
                     pass
                 else:
-                    dates.append(pytz.utc.localize(unaware))
+                    dates.append(pytz.utc.localize(dt))
                     #dates.append(dt.replace(tzinfo=None)))
         # Sort date list
         dates = sorted(dates)
         # Now, iterate through list until we're at or above today's date
-        now = datetime.now()
+        now = pytz.utc.localize(datetime.now())
         if len(dates) == 0:
             newest_date = now
         else:
