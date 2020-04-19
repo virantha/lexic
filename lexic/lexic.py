@@ -33,6 +33,10 @@ Options:
     -d --debug       show even more information
     --conf=FILE      load options from file
     --threads=<THREADS>       number of parallel threads [default: max]
+    --smtp_password      password
+    --smtp_email_login     email login
+    --target_email         pushover email
+
 
 """
 
@@ -131,6 +135,7 @@ class Lexic:
                 conf_args = yaml.load(f)
         else:
             conf_args = {}
+        logging.debug(args)
         args = merge_args(conf_args, args)
         #args = ChainMap(args, conf_args)
         logging.debug(args)
@@ -325,9 +330,9 @@ class Lexic:
         try:
             server = smtplib.SMTP('smtp.gmail.com', 587)
             server.starttls()
-            server.login("virantha@gmail.com", "bwzjruygraahuwlz")
+            server.login(self.args['smtp_email_login'], self.args['smtp_password'])
 
-            server.sendmail("virantha@gmail.com", "hzqshjjjby@pomail.net", msg)
+            server.sendmail(self.args['smtp_email_login'], self.args['target_email'], msg)
             server.quit()
         except SSLError as e:
             print("ERROR SENDING EMAIL")
