@@ -72,19 +72,23 @@ class KeywordFiler:
         # If no dates found (with full day month year), just use today's date
         dates = []
         for page_num, page in enumerate(self.iter_page_text()):
-            page_dates = search_dates(page)
+            page_dates = search_dates(page, settings={'RETURN_AS_TIMEZONE_AWARE':False})
             logger.debug(f'Found dates on page {page_num}')
             logger.debug(page_dates)
-            for text, dt in page_dates:
-                if dt.year == 1900:
-                    pass
-                else:
-                    dates.append(pytz.utc.localize(dt))
+            if page_dates is not None:
+                for text, dt in page_dates:
+                    if dt.year == 1900:
+                        pass
+                    else:
+                        dates.append(pytz.utc.localize(dt))
                     #dates.append(dt.replace(tzinfo=None)))
         # Sort date list
+        logger.debug(dates)
         dates = sorted(dates)
+
         # Now, iterate through list until we're at or above today's date
         now = pytz.utc.localize(datetime.now())
+
         if len(dates) == 0:
             newest_date = now
         else:
