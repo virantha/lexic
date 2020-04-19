@@ -44,7 +44,7 @@ Options:
 """
 from docopt import docopt
 import yaml
-import sys, os, logging, shutil
+import sys, os, logging, shutil, smtplib
 from collections import ChainMap
 from schema import Schema, And, Optional, Or, Use, SchemaError
 from pathlib import Path
@@ -93,6 +93,7 @@ class Lexic:
         self.required_flow_steps = ['setup', 'analyze', 'image', 'orient', 'ocr', 'text_process', 'create_overlay', 'merge_overlay', 'clean']
         self.flow_actions = ['skip']
         warnings.simplefilter('ignore')   # get rid of stupid matplotlib warnings for now
+        self.status_messages = []
 
 
 
@@ -299,16 +300,37 @@ class Lexic:
         results = {}
         # Find starting setup step
         node = self._find_stage(G, 'setup')
-        logger.info(f'Processing setup step')
+        self.add_to_status(f'Processing setup step')
         results[node.stage] = await node.run(self.args['PDFFILE'])
 
         for next_nodes in nx.dfs_successors(G, node).values():
-            for next_node in next_nodes:
-                logger.info(f'Processing step {next_node.name}[{next_node.stage}], with inputs from {next_node.inputs_from}')
-                results[next_node.stage] = await next_node.run(*[results[r] for r in next_node.inputs_from])
+            try:
+                for next_node in next_nodes:
+                    self.add_to_status(f'Processing step {next_node.name}[{next_node.stage}], with inputs from {next_node.inputs_from}')
+                    results[next_node.stage] = await next_node.run(*[results[r] for r in next_node.inputs_from])
+            except Exception as e:
+                self.add_to_status(str(e))
+        self.send_status_to_email()
 
         print(f'Successfully generated OCR file: {results[next_node.stage]}')
         return
+
+    def add_to_status(self, msg):
+        self.status_messages.append(msg)
+        logger.info(msg)
+
+    def send_status_to_email(self):
+        msg = '\n'.join(self.status_messages)
+        logger.info('sending status to email')
+        try:
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()
+            server.login("virantha@gmail.com", "bwzjruygraahuwlz")
+
+            server.sendmail("virantha@gmail.com", "hzqshjjjby@pomail.net", msg)
+            server.quit()
+        except SSLError as e:
+            print("ERROR SENDING EMAIL")
 
     def _find_stage(self, G, stage):
         for  n in G.nodes():

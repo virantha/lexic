@@ -83,19 +83,23 @@ class KeywordFiler:
                         dates.append(pytz.utc.localize(dt))
                     #dates.append(dt.replace(tzinfo=None)))
         # Sort date list
-        logger.debug(dates)
         dates = sorted(dates)
+        logger.debug(dates)
 
         # Now, iterate through list until we're at or above today's date
         now = pytz.utc.localize(datetime.now())
-
         if len(dates) == 0:
             newest_date = now
         else:
             newest_date = dates[0]
             for dt in dates:
-                if dt <= now:
-                    newest_date = dt
-                else:
+                if dt > now:
                     break
+                newest_date = dt
+        
+        # Make sure the timezone is the local timezone
+        local_timezone = datetime.now().astimezone().tzinfo
+        logger.debug(f'Local timezone is {local_timezone}')
+        newest_date = newest_date.replace(tzinfo=local_timezone)
+        logger.info(f'Using date {newest_date} as creation date for document')
         return newest_date
