@@ -31,6 +31,7 @@ class Plugin(Cmd):
                 out = await self._run_command(cmd)
                 resolutions = self._get_resolutions(out)
                 await self.write_yaml_to_file(resolutions_filename, resolutions)
+                await self.add_message(f'{len(resolutions)} pages in pdf')
             next_items.append(resolutions_filename)
         
         return next_items

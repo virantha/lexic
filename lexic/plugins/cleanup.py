@@ -48,5 +48,6 @@ class Plugin(Cmd):
         except OSError as e:
             self.error(f'Could not do cleanup step - {e}')
         
+        await self.add_message('done')
         return ItemList([output_filename])
     

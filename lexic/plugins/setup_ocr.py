@@ -63,4 +63,5 @@ class Plugin(Cmd):
         copied_filename = os.path.join(tgtdir, filename)
         item_list = ItemList([copied_filename])
         logging.info(f'Using {tgtdir} as work directory')
+        await self.add_message(f'{base_filename} being processed')
         return item_list

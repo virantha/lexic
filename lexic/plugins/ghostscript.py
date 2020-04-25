@@ -38,6 +38,7 @@ class Plugin(Cmd):
                 output_filename = f'{filename}_{page}.png'
                 await self.add_to_queue(output_filename, self.call_ghostscript, 
                                             item, page, output_filename, res_x, res_y)
+                await self.add_message(f'page {page} at {res_x}x{res_y}')
  
             return await self.run_queue()
 

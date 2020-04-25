@@ -247,6 +247,17 @@ class Lexic:
                 - create_overlay
                 - merge_overlay
                 - clean
+
+            Each plugin can identify as either:
+            1. replacing one of thise pipeline stages
+            2. filter before a stage
+            3. filter after a stage
+
+            Build up a graph from networkx and then traverse it
+
+            Each stage and filter must be skippable
+                - In order to be skippable, that means it must be able to return the
+                  output it would normally have produced without actually doing the work
         """
         required_flow_steps = self.required_flow_steps
         filters = self.filters
@@ -305,16 +316,20 @@ class Lexic:
         results = {}
         # Find starting setup step
         node = self._find_stage(G, 'setup')
-        self.add_to_status(f'Processing setup step')
+        logger.info(f'Processing setup step')
         results[node.stage] = await node.run(self.args['PDFFILE'])
 
         for next_nodes in nx.dfs_successors(G, node).values():
             try:
                 for next_node in next_nodes:
-                    self.add_to_status(f'Processing step {next_node.name}[{next_node.stage}], with inputs from {next_node.inputs_from}')
+                    logger.info(f'Processing step {next_node.name}[{next_node.stage}], with inputs from {next_node.inputs_from}')
                     results[next_node.stage] = await next_node.run(*[results[r] for r in next_node.inputs_from])
             except Exception as e:
                 self.add_to_status(str(e))
+        while not Cmd.msg_queue.empty():
+            msg = await Cmd.msg_queue.get()
+            self.add_to_status(msg)
+            await Cmd.msg_queue.task_done()
         self.send_status_to_email()
 
         print(f'Successfully generated OCR file: {results[next_node.stage]}')
@@ -325,13 +340,14 @@ class Lexic:
         logger.info(msg)
 
     def send_status_to_email(self):
-        msg = '\n'.join(self.status_messages)
+
+        msg = 'lexic processed\n' + '\n'.join(self.status_messages)
         logger.info('sending status to email')
+        logger.debug(msg)
         try:
             server = smtplib.SMTP('smtp.gmail.com', 587)
             server.starttls()
             server.login(self.args['smtp_email_login'], self.args['smtp_password'])
-
             server.sendmail(self.args['smtp_email_login'], self.args['target_email'], msg)
             server.quit()
         except SSLError as e:
@@ -363,73 +379,6 @@ class Lexic:
         for i, input_from in enumerate(new_node.inputs_from):
             if input_from == new_node.stage:
                 new_node.inputs_from[i] = node.stage
-
-
-    async def _system(self):
-        """
-            Pipeline steps must include the following:
-
-            setup
-            analyze   (pdfimages)
-            image     (ghostscript)
-            orient    (tesseract)
-            ocr       (tesseract)
-            text_process 
-            create_overlay
-            merge_overlay
-
-            Each plugin can identify as either:
-            1. replacing one of thise pipeline stages
-            2. filter before a stage
-            3. filter after a stage
-
-            Build up a graph from networkx and then traverse it
-
-            Each stage and filter must be skippable
-                - In order to be skippable, that means it must be able to return the
-                  output it would normally have produced without actually doing the work
-        """
-        setup = Setup(self.args.get('setup', {}))
-        #pdfrotations = PdfRotations(self.args.get('pdfrotations', {}))
-        orientation = PdfOrientations(self.args.get('orientation', {}))
-        pdfimages = PdfImages(self.args.get('pdfimages', {}))
-        gs = Ghostscript(self.args.get('gs', {}))
-        pre = ImageMagick(self.args.get('imagemagick', {}))
-        ts = Tesseract(self.args.get('tesseract', {}))
-        tsv = TsvParse(self.args.get('tsv', {}))
-        pdfoverlay = PdfOverlay(self.args.get('pdfoverlay', {}))
-        pdfmerge = PdfMerge(self.args.get('pdfmerge', {}))
-
-
-        gs_in = setup.initialize(self.args['PDFFILE'])
-
-        logger.info('About to pdfimage')
-        resolutions = await pdfimages.get_res(gs_in)
-        logging.debug(resolutions)
-
-        logger.info('About to ghostscript')
-        gs_out = await gs.image(gs_in, resolutions)
-
-        logger.debug('About to preprocess image files')
-        #Ipre_out = await pre.preprocess(gs_out)
-
-        logger.info('About to get rotation angles')
-        rotation_angles = await orientation.get_rotation_angles(gs_out)
-        logger.debug(f'Rotation angles: {rotation_angles}')
-
-        logger.info('About to tesseract')
-        ts_out = await ts.process(gs_out)
-
-        logger.info('About to parse tsv')
-        tsv_out = await tsv.parse(ts_out)
-        
-        logger.info('About to create overlay files with ext')
-        pdfoverlay_out = await pdfoverlay.create_overlay(tsv_out, resolutions, rotation_angles)
-
-        logger.info('About to merge pdfs')
-        pdfmerge_out = await pdfmerge.merge_pdfs(pdfoverlay_out, self.args['PDFFILE'])
-
-        print(f'Successfully generated OCR file: {pdfmerge_out}')
 
 
 

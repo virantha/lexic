@@ -22,13 +22,13 @@ class Plugin(Cmd):
     
     async def run(self, item_list):
         with item_list as items:
-            for item in items:
+            for i, item in enumerate(items):
                 angle_filename = self._change_ext(item, 'ang')
-                await self.add_to_queue(angle_filename, self.call_tesseract_for_osd, item, angle_filename)
+                await self.add_to_queue(angle_filename, self.call_tesseract_for_osd, i, item, angle_filename)
                     
             return await self.run_queue()
                 
-    async def call_tesseract_for_osd(self, item, angle_filename):
+    async def call_tesseract_for_osd(self, i, item, angle_filename):
         """ Runs tesseract with just the orientation and script detection
 
             Returns the angle parsed from the output file if available, otherwise defaults to zero
@@ -54,10 +54,17 @@ class Plugin(Cmd):
                 if line.startswith('Orientation in degrees'):
                     _, angle = line.split(':')
                     angle = int(angle.strip())
-            logger.debug('Cannot parse angle from OSD detection, using 0 degrees as rotation angle') 
-            angle= 0
+            if angle == -1:
+                msg = f'page {i+1} - cannot parse angle from OSD detection, using 0 degrees as rotation angle'
+                angle= 0
+            else:
+                msg = f'page {i+1} - parsed orientation as {angle} degrees'
+            logger.debug(msg)
+            await self.add_message(msg)
         except (subprocess.CalledProcessError, IOError):
-            logger.debug("Tesseract OSD could not be executed; defaulting to 0 degrees")
+            msg = f"page {i+1} - Tesseract OSD could not be executed; defaulting to 0 degrees"
+            logger.debug(msg)
+            await self.add_message(msg)
             angle=0
         finally:
             # Make sure we clean up the intermediate output from tesseract 

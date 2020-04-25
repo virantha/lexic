@@ -250,6 +250,8 @@ class Plugin(Cmd):
             En.default_folder = folder
             En.target_folder= filer.yaml_config['root']
             En.move_to_matching_folder(item, folder, dt)
+            await self.add_message(f'filed to {folder} with date {dt.year}/{dt.month}/{dt.day}')
+            await self.add_message('keywords - ' + ', '.join(filer.find_noun_phrases()[:10]))
 
         return item_list
     

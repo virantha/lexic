@@ -92,6 +92,7 @@ class Plugin(Cmd):
                 tgt_path = folder / Path(f'{basename}.{i}{ext}')
                 i += 1
             shutil.copy2(item, tgt_path)
+            await self.add_message(f'Copied OCR pdf {item} to {tgt_path}')
 
             # Now, file the original if needed
             if filer.originals_path:
@@ -102,6 +103,7 @@ class Plugin(Cmd):
                 if not filer._check_folder_exists(tgt_path):
                     os.makedirs(tgt_path)
                 shutil.copy2(self.original_pdf_filename, tgt_path)
+                await self.add_message(f'Copied original to {tgt_path}')
 
         return item_list
     

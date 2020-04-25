@@ -7,6 +7,7 @@ from PyPDF2 import PdfFileReader
 from dateparser.search import search_dates
 from datetime import datetime
 import pytz
+from textblob import TextBlob
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,11 @@ class KeywordFiler:
         # No match for folder so we need to set it to the default
         return default_folder         
 
+    def find_noun_phrases(self):
+        first_page = next(self.iter_page_text())
+        tb = TextBlob(first_page)
+        return tb.noun_phrases
+        
     def find_closest_date(self):
         # Go through every page and search for dates using dateparser
         # At the end, select the date closest to (and older) than the current date

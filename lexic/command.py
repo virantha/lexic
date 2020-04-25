@@ -3,7 +3,7 @@
     Base class to represent all the external commands we have to invoke
 """
 import platform, logging, shutil, os, sys
-from curio import subprocess, spawn
+from curio import subprocess, spawn, Queue
 from tqdm import tqdm
 import yaml
 
@@ -20,6 +20,7 @@ class Cmd:
     post_step = []
     inputs_from = []
     N_THREADS = 1
+    msg_queue = Queue()
 
     def __init__(self, config, skip=False):
         self.config = config
@@ -112,6 +113,11 @@ class Cmd:
             
     async def add_to_queue(self, output_filename, task_func, *task_args):
         self.queue[output_filename] = (task_func, *task_args)
+
+    async def add_message(self, msg):
+        msg = f'{self.name}: {msg}'
+        await Cmd.msg_queue.put(msg)
+
 
     async def run_queue(self):
         t_list = []  # All currently executing tasks
