@@ -42,7 +42,7 @@ class Plugin(Cmd):
                 Script confidence: 4.67
         """
         basename = self._get_filename_base(item)
-        cmd = f'{self.executable} {item} {basename} --psm 0'
+        cmd = f'{self.executable} {item} {basename} -l osd --psm 0'
         logger.debug(cmd)
         try:
             osd_file = self._change_ext(item, 'osd')

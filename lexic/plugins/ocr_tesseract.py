@@ -1,4 +1,4 @@
-import logging, os
+import logging, os, subprocess
 
 from ..command import Cmd
 from ..item import ItemList
