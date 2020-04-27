@@ -48,7 +48,6 @@ class Plugin(Cmd):
                 with open(orig_pdf_filename, 'rb') as orig_pdf, \
                     open(merged_filename, 'rb') as text_pdf:
 
-                    print(len(items))
                     for orig_page, text_page in   \
                         self.iterate_with_progress(zip(self.iter_pdf_page(orig_pdf),
                             self.iter_pdf_page(text_pdf)), total=len(items)):

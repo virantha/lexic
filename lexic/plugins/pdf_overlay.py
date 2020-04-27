@@ -132,6 +132,7 @@ class Plugin(Cmd):
         font_size_change_threshold = 5 
 
         #for loc, text in text_locations.items():
+        logger.debug(f'Adding text_layer: xdpi: {xdpi} ydpi: {ydpi} page_height: {page_height}')
         for loc, text in sorted(text_locations.items(), key=lambda kv: kv[0]):
             block, par, line, word, x, y, w, h = loc
             logger.debug(f'Text "{text}" at ({x}, {y}) : w {w} h {h}')

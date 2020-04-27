@@ -58,6 +58,7 @@ from curio import run, subprocess
 import networkx as nx
 import matplotlib.pyplot as plt
 import psutil
+from ssl import SSLError
 
 from .version import __version__
 from .utils import ordered_load, merge_args
@@ -325,6 +326,7 @@ class Lexic:
                     logger.info(f'Processing step {next_node.name}[{next_node.stage}], with inputs from {next_node.inputs_from}')
                     results[next_node.stage] = await next_node.run(*[results[r] for r in next_node.inputs_from])
             except Exception as e:
+                logger.debug(str(e))
                 self.add_to_status(str(e))
         while not Cmd.msg_queue.empty():
             msg = await Cmd.msg_queue.get()

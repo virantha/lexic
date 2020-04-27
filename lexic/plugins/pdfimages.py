@@ -1,4 +1,5 @@
 import logging, os, platform
+from PyPDF2 import PdfFileReader
 
 from ..command import Cmd
 from ..item import ItemList
@@ -30,11 +31,35 @@ class Plugin(Cmd):
             if not self.skip:
                 out = await self._run_command(cmd)
                 resolutions = self._get_resolutions(out)
-                await self.write_yaml_to_file(resolutions_filename, resolutions)
-                await self.add_message(f'{len(resolutions)} pages in pdf')
+                dims = self._get_page_sizes(item)  # Get the actual page sizes using pypdf2
+                logger.debug(f'Page dimensions: {dims}')
+
+                page_values = {}
+                for page_num in resolutions:
+                    # Replace the page h, w in the resolutions
+                    xdpi, ydpi, _, _ = resolutions[page_num]
+                    new_w = int(dims[page_num][0]*xdpi/72.0)
+                    new_h = int(dims[page_num][1]*ydpi/72.0)
+                    page_values[page_num] = (xdpi, ydpi, new_w, new_h)
+
+                await self.write_yaml_to_file(resolutions_filename, page_values)
+                await self.add_message(f'{len(page_values)} pages in pdf')
             next_items.append(resolutions_filename)
         
         return next_items
+
+    def _get_page_sizes(self, pdf_filename):
+        # Use PyPDF2 to get actual page size, since relying on pdfimages only
+        # returns an image, which could be placed on a larger page
+        pdf_file = PdfFileReader(pdf_filename)
+        n = pdf_file.getNumPages()
+        page_dims = {}
+        for page_num in range(n):
+            page = pdf_file.getPage(page_num).mediaBox
+            _, _, w, h = page
+            page_dims[page_num+1]= (w,h)
+        return page_dims
+
 
 
     def _get_resolutions(self, pdfimage_output):
