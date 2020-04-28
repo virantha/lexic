@@ -118,6 +118,13 @@ class Cmd:
         msg = f'{self.name}: {msg}'
         await Cmd.msg_queue.put(msg)
 
+    async def get_messages(self):
+        msgs = []
+        while not Cmd.msg_queue.empty():
+            msg = await Cmd.msg_queue.get()
+            msgs.append(msg)
+            await Cmd.msg_queue.task_done()
+        return msgs
 
     async def run_queue(self):
         t_list = []  # All currently executing tasks

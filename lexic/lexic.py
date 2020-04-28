@@ -327,33 +327,10 @@ class Lexic:
                     results[next_node.stage] = await next_node.run(*[results[r] for r in next_node.inputs_from])
             except Exception as e:
                 logger.debug(str(e))
-                self.add_to_status(str(e))
-        while not Cmd.msg_queue.empty():
-            msg = await Cmd.msg_queue.get()
-            self.add_to_status(msg)
-            await Cmd.msg_queue.task_done()
-        self.send_status_to_email()
-
+                next_node.add_message(str(e))
+        #self.send_status_to_email()
         print(f'Successfully generated OCR file: {results[next_node.stage]}')
         return
-
-    def add_to_status(self, msg):
-        self.status_messages.append(msg)
-        logger.info(msg)
-
-    def send_status_to_email(self):
-
-        msg = 'lexic processed\n' + '\n'.join(self.status_messages)
-        logger.info('sending status to email')
-        logger.debug(msg)
-        try:
-            server = smtplib.SMTP('smtp.gmail.com', 587)
-            server.starttls()
-            server.login(self.args['smtp_email_login'], self.args['smtp_password'])
-            server.sendmail(self.args['smtp_email_login'], self.args['target_email'], msg)
-            server.quit()
-        except SSLError as e:
-            print("ERROR SENDING EMAIL")
 
     def _find_stage(self, G, stage):
         for  n in G.nodes():
