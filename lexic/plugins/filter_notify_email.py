@@ -38,3 +38,5 @@ class Plugin(Cmd):
             server.quit()
         except SSLError as e:
             print("ERROR SENDING EMAIL")
+
+        return item_list
