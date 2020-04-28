@@ -13,8 +13,7 @@
 # limitations under the License.
 
 """
-How interesting!
--f for flow
+Run OCR on a scanned PDF and optionally file it automatically based on content
 
 Usage:
     lexic.py [options] PDFFILE default
@@ -28,15 +27,12 @@ Arguments:
     default     Run default steps in the flow (%s)
 
 Options:
-    -h --help        show this message
-    -v --verbose     show more information
-    -d --debug       show even more information
-    --conf=FILE      load options from file
+    -h --help                 show this message
+    -v --verbose              show more information
+    -d --debug                show even more information
+    --graph_plugins           debug plot of plugin dependencies
+    --conf=FILE               load options from file
     --threads=<THREADS>       number of parallel threads [default: max]
-    --smtp_password      password
-    --smtp_email_login     email login
-    --target_email         pushover email
-
 
 """
 
@@ -310,7 +306,7 @@ class Lexic:
                 print("ERROR: could not find a place for the filter")
                 sys.exit(-1)
 
-        if self.args['--debug']:
+        if self.args['--graph_plugins']:
             nx.draw(G, with_labels=True, labels={ n: f'{n.name}[{n.stage}]' for n in G.nodes()})
             plt.show()
 
