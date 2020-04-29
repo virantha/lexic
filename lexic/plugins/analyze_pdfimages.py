@@ -57,7 +57,7 @@ class Plugin(Cmd):
         for page_num in range(n):
             page = pdf_file.getPage(page_num).mediaBox
             _, _, w, h = page
-            page_dims[page_num+1]= (w,h)
+            page_dims[page_num+1]= (int(w), int(h))
         return page_dims
 
 
