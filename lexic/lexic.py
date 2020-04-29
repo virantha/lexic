@@ -16,9 +16,9 @@
 Run OCR on a scanned PDF and optionally file it automatically based on content
 
 Usage:
-    lexic.py [options] PDFFILE default
+    lexic.py [options] PDFFILE 
     lexic.py [options] PDFFILE (%s)...
-    lexic.py [options] PDFFILE filters (%s)... default
+    lexic.py [options] PDFFILE filters (%s)... 
     lexic.py [options] PDFFILE filters (%s)... (%s)...
     lexic.py -h
 
@@ -44,7 +44,7 @@ Options:
 """
 from docopt import docopt
 import yaml
-import sys, os, logging, shutil, smtplib
+import sys, os, logging, shutil, smtplib, traceback
 from collections import ChainMap
 from schema import Schema, And, Optional, Or, Use, SchemaError
 from pathlib import Path
@@ -144,15 +144,13 @@ class Lexic:
             Cmd.N_THREADS = int(threads)
         logger.info(f'Using {Cmd.N_THREADS} parallel threads')
 
-        if args['default'] == 0:
-            # TODO we don't really care about self.flow anymore, right?
-            for f in list(self.flow):
-                if args[f] == 0: del self.flow[f]
-            logging.info("Doing flow steps: %s" % (','.join(self.flow.keys())))
+        # If no flow steps have been specified, then assume user wants to run all steps
+        for f in self.required_flow_steps:
+            if args[f] == 1: break
         else:
+            # No required steps have been specified, so enable them all
             for f in self.required_flow_steps:
                 args[f] = 1
-            logging.info("Doing flow steps: %s" % (','.join(self.flow.keys())))
 
         if True or args['filters']:
             # if any filters have been specified
@@ -322,7 +320,8 @@ class Lexic:
                     logger.info(f'Processing step {next_node.name}[{next_node.stage}], with inputs from {next_node.inputs_from}')
                     results[next_node.stage] = await next_node.run(*[results[r] for r in next_node.inputs_from])
             except Exception as e:
-                logger.debug(str(e))
+                print(str(e))
+                print(traceback.format_exc())
                 next_node.add_message(str(e))
         #self.send_status_to_email()
         print(f'Successfully generated OCR file: {results[next_node.stage]}')
