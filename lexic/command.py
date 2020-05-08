@@ -115,7 +115,8 @@ class Cmd:
         self.queue[output_filename] = (task_func, *task_args)
 
     async def add_message(self, msg):
-        msg = f'{self.name}: {msg}'
+        #msg = f'{self.name}: {msg}'
+        msg = (self.name, msg)
         await Cmd.msg_queue.put(msg)
 
     async def get_messages(self):
