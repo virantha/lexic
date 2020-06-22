@@ -1,5 +1,5 @@
 import logging, os, platform, yaml, math
-from cgi import escape
+from html import escape
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.enums import TA_LEFT
