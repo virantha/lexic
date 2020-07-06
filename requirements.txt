@@ -12,3 +12,6 @@ oauth2
 dateparser
 pytz
 textblob
+msal
+atexit
+pyyaml-include

@@ -13,10 +13,16 @@ logger = logging.getLogger(__name__)
 
 class KeywordFiler:
 
-    def __init__(self, keyword_filename, pdf_filename):
-        self._load_yaml_and_validate(keyword_filename)
+    def __init__(self, config, pdf_filename):
+        #self._load_yaml_and_validate(keyword_filename)
         self.pdf_filename = pdf_filename
         self.reader = PdfFileReader(pdf_filename)
+        self.root_path = config['root']
+        self.default_path = config['default']
+        self.folders_to_keywords = config['yaml']['folders']
+        logger.debug(f'keywords file: {self.folders_to_keywords}')
+        self.keywords_to_folders = self.reverse_keyword_dict(self.folders_to_keywords)
+
 
     def _load_yaml_and_validate(self, keyword_filename):
         with open(keyword_filename) as f:
@@ -26,7 +32,6 @@ class KeywordFiler:
         assert 'default' in self.yaml_config, f'{file_desc} must contain a default folder'
         assert 'folders' in self.yaml_config, f'{file_desc} must contain a folders section'
 
-        file_folders = list(self.yaml_config['folders'].keys())
         self.root_path = self.yaml_config['root']
 
         self.folders_to_keywords = self.yaml_config['folders']
@@ -56,7 +61,7 @@ class KeywordFiler:
         # Iterate through each page and search for each
         keywords = list(self.keywords_to_folders.keys())
 
-        default_folder = self.yaml_config['default']
+        default_folder = self.default_path
         folder = None
         for page in self.iter_page_text():
             for keyword in keywords:

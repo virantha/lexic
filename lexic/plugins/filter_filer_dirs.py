@@ -14,16 +14,24 @@ logger = logging.getLogger(__name__)
 class DirFiler(KeywordFiler):
     # Need to augment the validator to create directories,
     # as well as store originals
+    def __init__(self, config, pdf_filename):
+        super().__init__(config, pdf_filename)
+        # If the originals is specified, then create an variable to use later
+        if 'originals' in config:
+            self.originals_path = Path(config['originals'])
+        else:
+            self.originals_path = None
+        self._validate_paths()
 
-    def _load_yaml_and_validate(self, keyword_filename):
-        super()._load_yaml_and_validate(keyword_filename)
-
-        file_folders = list(self.yaml_config['folders'].keys())
-        self.root_path = Path(self.yaml_config['root'])
+    def _validate_paths(self):
+        file_folders = list(self.folders_to_keywords.keys())
+        self.root_path = Path(self.root_path)
 
         # Check all folders are present
         if self._check_folder_exists(self.root_path):
-            for folder in file_folders+[self.yaml_config['default']]+[self.yaml_config.get('originals', '')]:
+            folders_to_check = file_folders + [self.default_path]
+            if self.originals_path: folders_to_check.append(self.originals_path)
+            for folder in folders_to_check:
                 folder_path = self.root_path / Path(folder)
                 if not self._check_folder_exists(folder_path):
                     print(f'Creating filing folder {folder_path}')
@@ -32,11 +40,6 @@ class DirFiler(KeywordFiler):
             print(f'Root filing folder {self.root_path} does not exist. Please create it first')
             sys.exit(-1)
 
-        # If the originals is specified, then create an variable to use later
-        if 'originals' in self.yaml_config:
-            self.originals_path = self.root_path / Path(self.yaml_config['originals'])
-        else:
-            self.originals_path = None
 
 
     def _check_folder_exists(self, foldername):
@@ -56,7 +59,11 @@ class Plugin(Cmd):
     filter_on_output = ['clean']
     inputs_from = ['clean','setup']
     
-    options = ['--filedirs-keywords=FILE     Keyword files']
+    #options = ['--filedirs-keywords=FILE     Keyword files']
+    options = ['--filedirs-root=NAME       Root directory', 
+               '--filedirs-default=NAME    Default directory to file in if no match', 
+               '--filedirs-originals=NAME  Where to file original pdf', 
+    ]
 
     """ yaml file input:
 
@@ -73,12 +80,10 @@ class Plugin(Cmd):
     async def run(self, item_list, original_pdf_list):
         logger.info(f'About to file into directories {item_list}')
 
-        yaml_filename = self.config['keywords']
-
         # Read in the keyword files
         with item_list as items:
             item = items[0]
-            filer = DirFiler(yaml_filename, item)
+            filer = DirFiler(self.config, item)
             folder = filer.find_matching_folder()
             folder = Path(filer.root_path) / Path(folder)
             logger.debug(f'Filing to folder {folder}')
@@ -96,7 +101,7 @@ class Plugin(Cmd):
 
             # Now, file the original if needed
             if filer.originals_path:
-                tgt_path = Path(filer.originals_path)
+                tgt_path = Path(filer.root_path) / Path(filer.originals_path)
                 dt = filer.find_closest_date()
                 year = dt.year
                 tgt_path = tgt_path / Path(f'{year}')

@@ -44,6 +44,8 @@ Options:
 """
 from docopt import docopt
 import yaml
+from yamlinclude import YamlIncludeConstructor
+
 import sys, os, logging, shutil, smtplib, traceback
 from collections import ChainMap
 from schema import Schema, And, Optional, Or, Use, SchemaError
@@ -55,6 +57,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import psutil
 from ssl import SSLError
+import tqdm
 
 from .version import __version__
 from .utils import ordered_load, merge_args
@@ -68,6 +71,7 @@ from .item import ItemList
 
 logger = logging.getLogger(__name__)
 
+YamlIncludeConstructor.add_to_loader_class(loader_class=yaml.FullLoader)
 
 """
    
@@ -129,7 +133,7 @@ class Lexic:
         # Load in default conf values from file if specified
         if args['--conf']:
             with open(args['--conf']) as f:
-                conf_args = yaml.load(f)
+                conf_args = yaml.load(f, Loader=yaml.FullLoader)
         else:
             conf_args = {}
         logging.debug(args)
@@ -198,7 +202,9 @@ class Lexic:
             logging.basicConfig(level=logging.DEBUG, format='%(message)s')
 
         self.load_plugins()  # Plugins need to be loaded to append plugin specific options
+        logging.info('Analyzing options...')
         self.get_options(argv)
+        logging.info('Setting up run...')
         run(self.system)
 
     def load_plugins(self):
@@ -207,25 +213,29 @@ class Lexic:
         logger.debug(f'Looking for plugins in {plugin_dir}')
         self.flow = {}
         self.filters = {}
-        for plugin_file in plugin_dir.iterdir():
-            if plugin_file.suffix == '.py':
-                # Let's import this!
-                logger.debug(f'Found plugin {plugin_file.stem}')
-                pkg = importlib.import_module(f'.plugins.{plugin_file.stem}', 'lexic')
-                plugin = pkg.Plugin
-                # Gets imported as lexic.plugins.plugin_name
-                # Now we need to insert the doc strings
-                new_options = plugin.options
-                global __doc__
-                __doc__ = __doc__ + '\n'.join([f'    {opt}' for opt in new_options])
-                if len(new_options) != 0:
-                    __doc__ += '\n'
-                Cmd.register_plugin(plugin)
-                
-                if plugin.stage != 'filter': 
-                    self.flow[plugin.stage] = plugin.desc
-                else:
-                    self.filters[plugin.name] = plugin.desc
+    
+        num_plugins = len(list(plugin_dir.glob('*.py')))
+        with tqdm.tqdm(desc='Loading plugins', total=num_plugins) as pbar:
+            for plugin_file in plugin_dir.iterdir():
+                if plugin_file.suffix == '.py':
+                    # Let's import this!
+                    logger.debug(f'Found plugin {plugin_file.stem}')
+                    pkg = importlib.import_module(f'.plugins.{plugin_file.stem}', 'lexic')
+                    plugin = pkg.Plugin
+                    # Gets imported as lexic.plugins.plugin_name
+                    # Now we need to insert the doc strings
+                    new_options = plugin.options
+                    global __doc__
+                    __doc__ = __doc__ + '\n'.join([f'    {opt}' for opt in new_options])
+                    if len(new_options) != 0:
+                        __doc__ += '\n'
+                    Cmd.register_plugin(plugin)
+                    
+                    if plugin.stage != 'filter': 
+                        self.flow[plugin.stage] = plugin.desc
+                    else:
+                        self.filters[plugin.name] = plugin.desc
+                    pbar.update(1)
 
 
     async def system(self):
@@ -263,46 +273,50 @@ class Lexic:
         logger.debug(Cmd.plugin_list)
         G = nx.DiGraph()
         prev_step = None
-        for step in required_flow_steps:
-            logger.debug(f'Setting up flow step {step}')
-            if step not in Cmd.plugin_list:
-                logger.debug(f'  error: There is no plugin for {step} step!')
-                sys.exit(-1)
-            plugin_class = list(Cmd.plugin_list[step].values())[0]  #TODO: needs to be fixed for cases of multiiple classes of stages
-            skip = (self.args[plugin_class.stage]==0)
-            plugin = plugin_class(self.args.get(plugin_class.name, {}), skip=skip)
-            G.add_node(plugin)
-            if prev_step: 
-                G.add_edge(prev_step, plugin)
-            prev_step = plugin
-            logger.debug(f'  done')
+        with tqdm.tqdm(desc='Setting up OCR pipeline', total=len(required_flow_steps)) as pbar:
+            for step in required_flow_steps:
+                logger.debug(f'Setting up flow step {step}')
+                if step not in Cmd.plugin_list:
+                    logger.debug(f'  error: There is no plugin for {step} step!')
+                    sys.exit(-1)
+                plugin_class = list(Cmd.plugin_list[step].values())[0]  #TODO: needs to be fixed for cases of multiiple classes of stages
+                skip = (self.args[plugin_class.stage]==0)
+                plugin = plugin_class(self.args.get(plugin_class.name, {}), skip=skip)
+                G.add_node(plugin)
+                if prev_step: 
+                    G.add_edge(prev_step, plugin)
+                prev_step = plugin
+                logger.debug(f'  done')
+                pbar.update(1)
                 
         # Now, add filters that are specified into the graph
-        for i, step in enumerate(reversed(list(filters.keys()))):
-            logger.debug(f'Adding {step} to flow')
-            plugin_class = Cmd.plugin_list["filter"][step]
-            logger.debug(f'PLUGIN CLASS {plugin}')
-            plugin = plugin_class(self.args.get(plugin_class.name, {}))
-            G.add_node(plugin)
-            # Set the original pdf file pointer (really only needed in the filing step)
-            plugin.original_pdf_filename = self.args['PDFFILE']
-            if len(plugin.filter_on_output) > 0:
-                logger.debug(f'Going to add {step} after a stage')
-                for stage in plugin.filter_on_output:
-                    logger.debug(f'Checking stage {stage}')
-                    node = self._find_stage(G, stage)
-                    if node:
-                        # Add new plugin node after this node
-                        logger.debug(f'Adding {step} after {stage}')
-                        self.insert_node_after(G, node, plugin, i)
-                        break   # not sure how to handle more than one possible place for this filter
-                else:
-                    print("Could not find a step to insert into")
-                    sys.exit(-1)
+        with tqdm.tqdm(desc='Setting up OCR filters', total=len(filters.keys())) as pbar:
+            for i, step in enumerate(reversed(list(filters.keys()))):
+                logger.debug(f'Adding {step} to flow')
+                plugin_class = Cmd.plugin_list["filter"][step]
+                logger.debug(f'PLUGIN CLASS {plugin}')
+                plugin = plugin_class(self.args.get(plugin_class.name, {}))
+                G.add_node(plugin)
+                # Set the original pdf file pointer (really only needed in the filing step)
+                plugin.original_pdf_filename = self.args['PDFFILE']
+                if len(plugin.filter_on_output) > 0:
+                    logger.debug(f'Going to add {step} after a stage')
+                    for stage in plugin.filter_on_output:
+                        logger.debug(f'Checking stage {stage}')
+                        node = self._find_stage(G, stage)
+                        if node:
+                            # Add new plugin node after this node
+                            logger.debug(f'Adding {step} after {stage}')
+                            self.insert_node_after(G, node, plugin, i)
+                            break   # not sure how to handle more than one possible place for this filter
+                    else:
+                        print("Could not find a step to insert into")
+                        sys.exit(-1)
 
-            else:
-                print("ERROR: could not find a place for the filter")
-                sys.exit(-1)
+                else:
+                    print("ERROR: could not find a place for the filter")
+                    sys.exit(-1)
+                pbar.update(1)
 
         if self.args['--graph_plugins']:
             nx.draw(G, with_labels=True, labels={ n: f'{n.name}[{n.stage}]' for n in G.nodes()})

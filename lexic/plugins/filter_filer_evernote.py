@@ -213,7 +213,12 @@ class Plugin(Cmd):
     filter_on_output = ['clean']
     inputs_from = ['clean','setup']
     
-    options = ['--evernote-keywords=FILE     Keyword files']
+    #options = ['--evernote-keywords=FILE     Keyword files']
+    options = ['--evernote-root=NAME      Root notebook stack', 
+               '--evernote-default=NAME   Default notebook name', 
+               '--evernote-token          Evernote developer token',
+    ]
+    
 
     """ yaml file input:
 
@@ -230,12 +235,12 @@ class Plugin(Cmd):
     async def run(self, item_list, original_pdf_list):
         logger.info(f'About to file into directories {item_list}')
 
-        yaml_filename = self.config['keywords']
+        #yaml_filename = self.config['keywords']
 
         # Read in the keyword files
         with item_list as items:
             item = items[0]
-            filer = EvernoteFiler(yaml_filename, item)
+            filer = EvernoteFiler(self.config, item)
             folder = filer.find_matching_folder()
             logger.debug(f'Filing to Evernote folder {folder}')
 
@@ -245,10 +250,10 @@ class Plugin(Cmd):
             # Evernote
             #    Create note
             #    Push it to the note store
-            En = Evernote(filer.yaml_config['EVERNOTE_TOKEN'])
+            En = Evernote(self.config['token'])
             En.connect_to_evernote()
             En.default_folder = folder
-            En.target_folder= filer.yaml_config['root']
+            En.target_folder= filer.root_path
             En.move_to_matching_folder(item, folder, dt)
             await self.add_message(f'filed to {folder} with date {dt.year}/{dt.month}/{dt.day}')
             await self.add_message('keywords - ' + ', '.join(filer.find_noun_phrases()[:10]))

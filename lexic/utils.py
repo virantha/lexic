@@ -21,14 +21,34 @@ def merge_args(conf_args, orig_args):
         Make sure that any keys in conf_args are also present in args
     """
     args = {}
-    for k in list(conf_args.keys()):
-        if k not in orig_args:
-            if f'--{k}' in orig_args:
-                conf_args[f'--{k}'] = conf_args[k]
-            else:
-                print("ERROR: Configuration file has unknown option %s" % k)
-                sys.exit(-1)
+    # Need to convert things like:
+    # plugin_name:
+    #     option1: "blah"
+    #     option2: "blah"
+    # into something like:
+    # --plugin_name-option1: "blah"
+    # --plugin_name-option2: "blah"
 
+    for plugin_name in list(conf_args.keys()):
+        if plugin_name.startswith('-'):
+            # Ignore any option that starts with a dash
+            # We'll assume these are top-level options for now
+            pass
+        else:
+            plugin_options = list(conf_args[plugin_name].keys())  # This should be a dict
+            for option in plugin_options:  #
+                # Only use a conf file arg if it hasn't been specified at the command line
+                # (i.e. command line args supersede any in the conf file)
+                expanded_option_name = f'--{plugin_name}-{option}'
+                if expanded_option_name in orig_args or option == 'yaml':
+                    conf_args[expanded_option_name] = conf_args[plugin_name][option]
+                else:
+
+                    print(f"ERROR: Configuration file has unknown option {expanded_option_name}")
+                    sys.exit(-1)
+            # Remove this entry so we don't pollute the main config that uses plugin_name=0/1 to
+            # determine if a filter is specified
+            del conf_args[plugin_name]
     args.update(orig_args)
     args.update(conf_args)
     return args
