@@ -4,8 +4,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.enums import TA_LEFT
 from reportlab.platypus.paragraph import Paragraph
 from PyPDF2 import PdfFileMerger, PdfFileReader, PdfFileWriter, utils
-from curio import subprocess
-
+import curio
 from ..command import Cmd
 from ..item import ItemList
 
@@ -61,13 +60,79 @@ class Plugin(Cmd):
 
         next_items.append(output_pdf_filename)
         return next_items
+
+    async def run_new(self, item_list, orig_pdf_filename_list):
+        # First, create a pdf of merged text pages from items
+        logger.info("Creating a single PDF file containing all pages of just the text")
+        next_items = ItemList()
+
+        with orig_pdf_filename_list as items:
+            assert len(items) == 1
+            orig_pdf_filename = items[0]
+
+
+        output_pdf_filename = self._change_ext(orig_pdf_filename, 'ocr.pdf')
+        if not self.skip:
+            orig_page_filenames = self._split_into_pages(orig_pdf_filename)
+            with item_list as items:
+                for i, (text_pdf_page_filename, orig_pdf_page_filename) in enumerate(zip(items, orig_page_filenames)):
+                    merged_page_filename = self._change_ext(text_pdf_page_filename, 'merged.pdf')
+                    await self.add_to_queue(merged_page_filename, self.merge_overlay_page_wrapper, i, text_pdf_page_filename, orig_pdf_page_filename, merged_page_filename)
+
+                merged_filenames = await self.run_queue()
+            await self._merge_text_pdfs(merged_filenames, output_pdf_filename)
+            for fn in merged_filenames+orig_page_filenames:
+                os.remove(fn)
+        next_items.append(output_pdf_filename)
+        return next_items
+
+    def _split_into_pages(self, pdf_filename):
+        """Take a pdf and make separate PDF files for each page
+        """
+        pdf = PdfFileReader(pdf_filename)
+        output_filenames = []
+        for page_num in range(pdf.getNumPages()):
+            pdf_writer = PdfFileWriter()
+            pdf_writer.addPage(pdf.getPage(page_num))
+
+            output_filename = self._change_ext(pdf_filename, f'_{page_num}.orig.pdf')
+            output_filenames.append(output_filename)
+            with open(output_filename, 'wb') as f:
+                pdf_writer.write(f)
+        return output_filenames
             
+
+    async def merge_overlay_page_wrapper(self, page_num, text_pdf_page_filename, orig_pdf_filename, merged_page_filename):
+        await curio.run_in_thread(self.merge_overlay_page, page_num, text_pdf_page_filename, orig_pdf_filename, merged_page_filename)
+
+    def merge_overlay_page(self, page_num, text_pdf_page_filename, orig_pdf_page_filename, merged_page_filename):
+
+        with open(text_pdf_page_filename, 'rb') as text_pdf_page_file, \
+             open(orig_pdf_page_filename, 'rb') as orig_pdf_page_file:
+            text_page = self._get_first_page(text_pdf_page_file)
+            orig_page = self._get_first_page(orig_pdf_page_file)
+            # merge the two files
+            self._write_merged_single_page(orig_page, text_page, merged_page_filename)
+            #await curio.run_in_thread(self._write_merged_single_page,orig_page, text_page, merged_page_filename)
+
+    def _get_first_page(self, pdf_file):
+        all_pages = PdfFileReader(pdf_file)
+        first_page = all_pages.getPage(0)
+        return first_page
+
+    def _write_merged_single_page(self, orig_page, text_page, merged_filename):
+        # Call _get_merged_single_page and write it to a file
+        writer = PdfFileWriter()
+        writer.addPage(self._get_merged_single_page(orig_page, text_page))
+        with open(merged_filename, 'wb') as f:
+            writer.write(f)
 
     async def _merge_text_pdfs(self, items, output_filename):
         merger = PdfFileMerger()
         for item in items:
             logger.debug(f'Concatenating {item}')
             merger.append(PdfFileReader(item))
+        logger.debug(f'Writing merged pdf {output_filename}')
         merger.write(output_filename)
         merger.close()
         del merger

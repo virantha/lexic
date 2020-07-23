@@ -5,7 +5,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.enums import TA_LEFT
 from reportlab.platypus.paragraph import Paragraph
 from PyPDF2 import PdfFileMerger, PdfFileReader, PdfFileWriter, utils
-from curio import subprocess
+import curio
 
 from ..command import Cmd
 from ..item import ItemList
@@ -122,33 +122,38 @@ class Plugin(Cmd):
             logger.debug("Page width=%f, height=%f" % (width, height))
 
             logger.debug("Adding text to page %s" % pdf_filename)
-            await self.add_text_layer(text_locations, pdf, xdpi, ydpi, height, rotation_angle)
+            #self.add_text_layer(text_locations, pdf, xdpi, ydpi, height, rotation_angle)
+
+            # Run this cpu-intensive section in a thread so we don't block curio
+            await curio.run_in_thread(self.add_text_layer, text_locations, pdf, xdpi, ydpi, height, rotation_angle)
             pdf.showPage()
             pdf.save()
 
-    async def add_text_layer(self, text_locations, pdf, xdpi, ydpi, page_height, rotation_angle):
+    def add_text_layer(self, text_locations, pdf, xdpi, ydpi, page_height, rotation_angle):
+
+        assert rotation_angle in [0,90,180,270], f'Rotation angle {rotation_angle} is not supported (only 0, 90, 180, 270 work)'
 
         prev_font_size = -10
         font_size_change_threshold = 5 
 
         #for loc, text in text_locations.items():
         logger.debug(f'Adding text_layer: xdpi: {xdpi} ydpi: {ydpi} page_height: {page_height}')
+        # Get stylesheet to set font properties
+        style = getSampleStyleSheet()
+        normal = style['BodyText']
+        normal.alignment = TA_LEFT
+        normal.leading = 0
+        normal.fontName = 'Helvetica'
+
+        dpi_factor = 72.0*72.0/xdpi/ydpi
+
         for loc, text in sorted(text_locations.items(), key=lambda kv: kv[0]):
             block, par, line, word, x, y, w, h = loc
             logger.debug(f'Text "{text}" at ({x}, {y}) : w {w} h {h}')
-            # Get stylesheet to set font properties
-            style = getSampleStyleSheet()
-            normal = style['BodyText']
-            normal.alignment = TA_LEFT
-            normal.leading = 0
-            normal.fontName = 'Helvetica'
 
             length = len(text)
-
-            assert rotation_angle in [0,90,180,270], f'Rotation angle {rotation_angle} is not supported (only 0, 90, 180, 270 work)'
-
             # Hack to figure out what approximate font size to use for overlay text
-            area = w * h * 72.0 * 72.0 / xdpi / ydpi
+            area = w * h * dpi_factor
             new_font_size = math.sqrt(area/length*2.5)
             if new_font_size < 1: 
                 new_font_size = 1
