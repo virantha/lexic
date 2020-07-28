@@ -6,6 +6,7 @@ pypdf2
 networkx
 psutil
 curio
+asks
 matplotlib
 tqdm
 oauth2
