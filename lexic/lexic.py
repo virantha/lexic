@@ -71,7 +71,7 @@ from .item import ItemList
 
 logger = logging.getLogger(__name__)
 
-YamlIncludeConstructor.add_to_loader_class(loader_class=yaml.FullLoader)
+#YamlIncludeConstructor.add_to_loader_class(loader_class=yaml.FullLoader)
 
 """
    
@@ -133,6 +133,8 @@ class Lexic:
         # Load in default conf values from file if specified
         if args['--conf']:
             with open(args['--conf']) as f:
+                conf_basedir = os.path.abspath(os.path.dirname(args['--conf']))
+                YamlIncludeConstructor.add_to_loader_class(loader_class=yaml.FullLoader, base_dir=conf_basedir)
                 conf_args = yaml.load(f, Loader=yaml.FullLoader)
         else:
             conf_args = {}
