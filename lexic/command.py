@@ -3,6 +3,7 @@
     Base class to represent all the external commands we have to invoke
 """
 import platform, logging, shutil, os, sys, io, base64
+from pathlib import Path
 from requests import Request, Session
 import requests
 from tenacity import retry, wait_random, wait_fixed, stop_after_attempt, wait_random_exponential, stop_after_delay
@@ -15,11 +16,13 @@ import boto3
 
 from tqdm import tqdm
 import yaml
+import json
 
 logger = logging.getLogger(__name__)
 
 from .exc import UnsupportedOSError, UnknownExecutableError
 from .item import ItemList
+
 
 session = Session()
 session_adapter = requests.adapters.HTTPAdapter(pool_connections=20, pool_maxsize=100)
@@ -118,15 +121,26 @@ class Cmd:
         return response.json()
 
     def _aws_post_file(self, filename, signed_response):
-        # Not sure why asks isn't working here
+        # This is the requests version just for posterity (run it in curio.run_in_thread)
         upload_url = signed_response['url']
         upload_data = signed_response['fields']
         upload_filename = upload_data['key']
         with open(filename, 'rb') as f:
             files = {'file': (upload_filename, f)}
-            http_response = requests.post(upload_url, data=upload_data, files=files)
-            #http_response = await asks_session.post(upload_url, data=upload_data, files=files)
+            req = Request('POST', upload_url, data=upload_data, files=files)
+            prepared_req = req.prepare()
+            http_response = session.send(prepared_req)
             http_response.raise_for_status()
+
+    async def _aws_asks_post_file(self, filename, signed_response):
+        upload_url = signed_response['url']
+        upload_data = signed_response['fields']
+        upload_filename = upload_data['key']
+
+        data = upload_data
+        data['file'] = Path(filename)
+        http_response = await asks_session.post(upload_url, multipart=data)
+        http_response.raise_for_status()
 
     @retry(sleep=curio.sleep, wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_delay(10))
     async def _aws_upload_file(self, url, filename):
@@ -136,8 +150,8 @@ class Cmd:
         url_response = await self._get_aws_signed_url(url)
 
         # Not sure why i can't use asks here to post the files
-        response = await curio.run_in_thread(self._aws_post_file, filename, url_response)
-        #response = await self._aws_post_file(filename, url_response)
+        #response = await curio.run_in_thread(self._aws_post_file, filename, url_response)
+        response = await self._aws_asks_post_file(filename, url_response)
         return url_response
 
     @retry(sleep=curio.sleep, wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_delay(10))
