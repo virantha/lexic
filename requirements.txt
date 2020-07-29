@@ -7,7 +7,6 @@ networkx
 psutil
 curio
 asks
-matplotlib
 tqdm
 oauth2
 dateparser
