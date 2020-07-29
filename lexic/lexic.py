@@ -54,7 +54,6 @@ import warnings
 
 from curio import run, subprocess
 import networkx as nx
-import matplotlib.pyplot as plt
 import psutil
 from ssl import SSLError
 import tqdm
@@ -320,6 +319,7 @@ class Lexic:
 
         if self.args['--graph_plugins']:
             nx.draw(G, with_labels=True, labels={ n: f'{n.name}[{n.stage}]' for n in G.nodes()})
+            import matplotlib.pyplot as plt
             plt.show()
 
         results = {}
